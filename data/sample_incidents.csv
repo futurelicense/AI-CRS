@@ -1,0 +1,21 @@
+id,timestamp,type,severity,source_ip,target,description,status
+1,2023-11-10 14:23:42,Ransomware,Critical,45.89.126.75,File Storage,Ransomware encrypting database backup files detected.,In Progress
+2,2023-11-09 08:17:36,Unauthorized Access,High,103.45.68.212,Authentication System,Unauthorized login detected to Authentication System from unusual location.,Resolved
+3,2023-11-08 21:34:15,Malware Infection,Medium,187.23.45.109,Employee Workstation,Malware detected on Employee Workstation. Antivirus quarantined the threat but further investigation needed.,Resolved
+4,2023-11-07 10:12:23,Data Leak,Critical,209.57.128.44,Database,Sensitive data from Database potentially exposed to unauthorized parties.,Investigating
+5,2023-11-06 15:49:07,Phishing,Low,76.123.45.218,Email System,User reported phishing email that attempted to harvest credentials for Email System.,Contained
+6,2023-11-05 09:26:52,DDoS Attack,High,112.89.145.72,Web Server,Distributed denial of service attack targeting Web Server, causing service disruption.,Resolved
+7,2023-11-04 18:03:29,Insider Threat,Medium,192.168.25.45,Customer Portal,Suspicious activity detected from privileged user on Customer Portal.,Investigating
+8,2023-11-02 07:41:13,Credential Compromise,High,45.67.123.89,Active Directory,Multiple failed login attempts followed by successful login to Active Directory.,Resolved
+9,2023-10-31 22:37:56,Web Attack,Medium,76.49.158.23,Web Server,Web application firewall detected and blocked attack attempt on Web Server.,Contained
+10,2023-10-29 12:45:09,Malware Infection,Critical,173.56.91.204,Network Infrastructure,Advanced persistent threat malware detected on Network Infrastructure with signs of data exfiltration.,In Progress
+11,2023-10-27 08:19:42,Unauthorized Access,High,58.147.62.38,Cloud Storage,Unauthorized access detected to Cloud Storage from IP address with known malicious history.,Resolved
+12,2023-10-25 14:52:28,Ransomware,Critical,94.57.126.83,Database,Ransomware infection detected on Database. Systems encrypted and ransom note found.,Resolved
+13,2023-10-23 11:23:07,Phishing,Medium,187.126.49.75,Email System,Sophisticated phishing campaign targeting executive emails discovered.,Contained
+14,2023-10-21 16:38:51,DDoS Attack,High,45.129.87.36,Customer Portal,Application layer DDoS attack against Customer Portal login page.,Resolved
+15,2023-10-19 09:14:32,Data Leak,Critical,112.58.63.97,Payment System,Potential breach of Payment System with customer financial data at risk.,Investigating
+16,2023-10-16 20:47:19,Insider Threat,High,192.168.14.76,File Storage,Unauthorized data access from terminated employee account.,Resolved
+17,2023-10-14 15:29:43,Web Attack,Medium,76.123.58.94,Web Server,SQL injection attempt detected and blocked on Web Server.,Contained
+18,2023-10-12 07:53:28,Malware Infection,High,49.157.63.218,Employee Workstation,Targeted malware infection on executive workstation with signs of data theft.,Resolved
+19,2023-10-10 12:18:36,Credential Compromise,Medium,102.43.86.157,Authentication System,Brute force attack against Authentication System from multiple source IPs.,Contained
+20,2023-10-08 22:41:57,Physical Breach,High,Local,Network Infrastructure,Unauthorized physical access to facility housing Network Infrastructure.,Resolved

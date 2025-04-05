@@ -1,0 +1,26 @@
+id,name,category,severity,source,timestamp,description,confidence,status
+1,Trojan Malware ABC,Malware,High,SIEM,2023-10-15 08:23:45,Detected trojan malware attempting to establish C2 communication.,0.87,Active
+2,Crypto Ransomware XYZ,Ransomware,Critical,Endpoint Protection,2023-10-22 14:56:32,Potential crypto ransomware activity detected with file encryption attempts.,0.92,Investigating
+3,Email Phishing QRS,Phishing,Medium,OSINT,2023-11-01 10:12:09,Email phishing campaign targeting corporate credentials.,0.78,Active
+4,Volumetric DDoS TUV,DDoS,High,IDS/IPS,2023-10-25 19:34:27,Volumetric DDoS attack targeting web services.,0.85,Mitigated
+5,Database Data Breach DEF,Data Breach,Critical,SIEM,2023-11-05 07:45:18,Potential data exfiltration from database systems.,0.81,Investigating
+6,Employee Insider Threat GHI,Insider Threat,Medium,Threat Intelligence,2023-10-18 11:23:56,Suspicious activity from employee account with elevated privileges.,0.72,Active
+7,Nation-state APT JKL,APT,High,Threat Intelligence,2023-11-03 22:17:43,Nation-state advanced persistent threat with evidence of lateral movement.,0.89,Investigating
+8,Worm Malware MNO,Malware,Medium,Endpoint Protection,2023-10-20 15:41:22,Worm malware attempting to spread across network segments.,0.76,Mitigated
+9,Locker Ransomware PQR,Ransomware,Critical,SIEM,2023-11-07 09:23:11,Locker ransomware detected encrypting multiple file servers.,0.94,Active
+10,SMS Phishing STU,Phishing,Low,OSINT,2023-10-30 08:07:59,SMS phishing campaign targeting customer banking credentials.,0.68,Mitigated
+11,Protocol DDoS VWX,DDoS,Medium,IDS/IPS,2023-11-02 13:28:35,Protocol DDoS attack targeting DNS infrastructure.,0.79,Contained
+12,Cloud Data Breach YZA,Data Breach,High,SIEM,2023-10-28 16:52:41,Unauthorized access to cloud storage containing sensitive customer data.,0.86,Investigating
+13,Contractor Insider Threat BCD,Insider Threat,High,Threat Intelligence,2023-11-06 10:19:27,Unauthorized data access from contractor account during non-business hours.,0.83,Active
+14,Sophisticated APT EFG,APT,Critical,Threat Intelligence,2023-10-17 05:42:18,Sophisticated APT with custom malware and advanced evasion techniques.,0.95,Investigating
+15,Spyware Malware HIJ,Malware,Medium,Endpoint Protection,2023-11-04 14:37:26,Spyware detected capturing screenshots and keystrokes on executive workstation.,0.82,Active
+16,Encoder Ransomware KLM,Ransomware,High,SIEM,2023-10-19 20:15:33,Ransomware encrypting database backup files detected.,0.88,Mitigated
+17,Website Phishing NOP,Phishing,Medium,OSINT,2023-10-26 09:45:21,Phishing website impersonating corporate login portal.,0.77,Active
+18,Application DDoS QRS,DDoS,High,IDS/IPS,2023-11-08 11:33:42,Application layer DDoS attack targeting customer API endpoints.,0.84,Investigating
+19,Storage Data Breach TUV,Data Breach,Medium,SIEM,2023-10-22 18:27:14,Suspicious download of large data sets from file storage system.,0.75,Contained
+20,Privileged Insider Threat VWX,Insider Threat,Critical,Threat Intelligence,2023-11-07 07:56:19,Security admin account performing unauthorized system modifications.,0.91,Active
+21,Targeted APT YZA,APT,High,Threat Intelligence,2023-10-24 16:12:37,Targeted attack against finance department with spear-phishing and custom malware.,0.88,Investigating
+22,Adware Malware BCD,Malware,Low,Endpoint Protection,2023-11-01 13:24:58,Adware installing browser extensions and redirecting web traffic.,0.65,Mitigated
+23,Wiper Ransomware EFG,Ransomware,Critical,SIEM,2023-10-29 22:14:19,Destructive ransomware wiping system files after encryption.,0.93,Active
+24,Voice Phishing HIJ,Phishing,Medium,OSINT,2023-11-05 10:42:23,Voice phishing campaign targeting helpdesk for password resets.,0.73,Investigating
+25,Amplification DDoS KLM,DDoS,High,IDS/IPS,2023-10-21 18:39:47,DNS amplification DDoS attack causing network congestion.,0.87,Mitigated
