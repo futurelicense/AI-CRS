@@ -24,7 +24,22 @@ def load_sample_data(data_type):
         
         # Check if file exists and load it
         if data_type in file_paths and os.path.exists(file_paths[data_type]):
-            return pd.read_csv(file_paths[data_type])
+            # Load CSV with proper settings to avoid parsing issues
+            if data_type == 'incidents':
+                # Use more robust CSV parsing settings for incidents data
+                return pd.read_csv(file_paths[data_type], escapechar='\\', quotechar='"', on_bad_lines='skip')
+            else:
+                df = pd.read_csv(file_paths[data_type])
+                
+                # Convert risk_score to numeric for vulnerabilities
+                if data_type == 'vulnerabilities' and 'risk_score' in df.columns:
+                    df['risk_score'] = pd.to_numeric(df['risk_score'], errors='coerce')
+                
+                # Convert confidence to numeric for threats
+                if data_type == 'threats' and 'confidence' in df.columns:
+                    df['confidence'] = pd.to_numeric(df['confidence'], errors='coerce')
+                    
+                return df
         else:
             # If file doesn't exist, create sample data
             if data_type == 'threats':

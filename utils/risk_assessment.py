@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import random
+import pandas as pd
 
 def calculate_risk_score(severity, likelihood):
     """
@@ -53,6 +54,9 @@ def prioritize_risks(threat_data, vulnerability_data):
     
     # Calculate likelihood for vulnerabilities based on risk_score
     if 'risk_score' in vulnerabilities.columns:
+        # Ensure risk_score is numeric
+        vulnerabilities['risk_score'] = pd.to_numeric(vulnerabilities['risk_score'], errors='coerce').fillna(5.0)
+        
         # Normalize risk_score to 0-1 range for likelihood
         max_risk = vulnerabilities['risk_score'].max()
         vulnerabilities['likelihood'] = vulnerabilities['risk_score'] / (max_risk if max_risk > 0 else 10)
