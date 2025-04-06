@@ -258,6 +258,14 @@ elif page == "Compliance Status":
     # Import the compliance status page content
     from pages.compliance import show_compliance_status
     show_compliance_status()
+    
+elif page == "API Settings":
+    st.header("API Integration Settings")
+    st.info("Configure connections to external APIs for enhanced threat intelligence and analysis capabilities.")
+    
+    # Import the API settings page content
+    from pages.api_settings import show_api_settings
+    show_api_settings()
 
 # Footer
 st.markdown("---")

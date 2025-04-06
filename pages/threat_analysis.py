@@ -116,6 +116,44 @@ def show_threat_analysis():
     with tab3:
         st.subheader("AI-Powered Threat Classification")
         
+        # Check for Hugging Face API Key
+        import os
+        huggingface_api_key = os.getenv('HUGGINGFACE_API_KEY')
+        
+        if not huggingface_api_key:
+            st.warning("""
+            ⚠️ Hugging Face API key not found. Advanced AI models will not be available.
+            
+            For enhanced threat analysis capabilities, please provide your Hugging Face API key.
+            You can get a free API key at [huggingface.co](https://huggingface.co/join).
+            
+            Once obtained, add it as an environment variable named `HUGGINGFACE_API_KEY`.
+            """)
+            
+            # Provide a secret input for the API key
+            new_api_key = st.text_input("Enter Hugging Face API Key", type="password", key="hf_api_key_input")
+            
+            if new_api_key and st.button("Save API Key"):
+                # Store in session state (note: this is temporary for the session)
+                os.environ['HUGGINGFACE_API_KEY'] = new_api_key
+                st.success("API Key saved for this session! Advanced AI models are now available.")
+                st.rerun()
+        else:
+            st.success("✅ Hugging Face API is connected. Advanced AI models are available for threat classification.")
+        
+        # Model selection
+        model_options = {
+            "facebook/bart-large-mnli": "Zero-shot classification (best for new threat types)",
+            "deepset/roberta-base-squad2": "Question-answering model (best for detailed analysis)",
+            "distilbert-base-uncased-finetuned-sst-2-english": "Sentiment analysis model (best for threat severity)"
+        }
+        
+        selected_model = st.selectbox(
+            "Select AI Model",
+            options=list(model_options.keys()),
+            format_func=lambda x: f"{x} - {model_options[x]}"
+        )
+        
         # Text input for threat description
         threat_description = st.text_area(
             "Enter threat description or indicator for classification",
@@ -128,14 +166,11 @@ def show_threat_analysis():
         with col1:
             if st.button("Classify Threat"):
                 if threat_description:
-                    with st.spinner("Analyzing threat..."):
-                        # Simulate API call delay
-                        time.sleep(1.5)
+                    with st.spinner("Analyzing threat using AI models..."):
+                        # Get Hugging Face analysis with the selected model
+                        hugging_face_result = fetch_hugging_face_analysis(threat_description, model_name=selected_model)
                         
-                        # Get Hugging Face analysis
-                        hugging_face_result = fetch_hugging_face_analysis(threat_description)
-                        
-                        # Get basic classifier result
+                        # Get classifier result which will use Hugging Face if available
                         classifier_result = classify_threat(threat_description)
                         
                         # Store results in session state
@@ -146,12 +181,15 @@ def show_threat_analysis():
                         if hugging_face_result.get('classification'):
                             final_category = hugging_face_result['classification']
                             final_confidence = hugging_face_result['confidence']
+                            final_model = hugging_face_result.get('model', selected_model)
                         else:
                             final_category = classifier_result['category']
                             final_confidence = classifier_result['confidence']
+                            final_model = classifier_result.get('model', 'keyword_based_classification')
                         
                         st.session_state.final_category = final_category
                         st.session_state.final_confidence = final_confidence
+                        st.session_state.final_model = final_model
                 else:
                     st.error("Please enter a threat description for analysis.")
         
@@ -159,20 +197,64 @@ def show_threat_analysis():
         if 'final_category' in st.session_state:
             st.markdown("### Classification Results")
             
-            # Display the classification with confidence
-            st.markdown(f"**Identified Threat Type:** {st.session_state.final_category}")
-            st.progress(st.session_state.final_confidence)
-            st.markdown(f"**Confidence:** {st.session_state.final_confidence:.2f}")
+            # Layout with columns
+            col1, col2 = st.columns([1, 1])
             
-            # Display timestamp
-            if 'hugging_face_result' in st.session_state:
-                st.markdown(f"**Analysis Timestamp:** {st.session_state.hugging_face_result.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}")
+            with col1:
+                # Show which model was used
+                if 'final_model' in st.session_state:
+                    model_name = st.session_state.final_model
+                    st.info(f"Analysis performed using: **{model_name}**")
+                
+                # Display the classification with confidence
+                st.markdown(f"**Primary Threat Classification:** {st.session_state.final_category}")
+                st.progress(st.session_state.final_confidence)
+                st.markdown(f"**Confidence Score:** {st.session_state.final_confidence:.2f}")
+                
+                # Display timestamp
+                if 'hugging_face_result' in st.session_state:
+                    st.markdown(f"**Analysis Timestamp:** {st.session_state.hugging_face_result.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}")
+            
+            with col2:
+                # Show alternative classifications if available
+                if 'classifier_result' in st.session_state:
+                    classifier_result = st.session_state.classifier_result
+                    
+                    if 'alternative_categories' in classifier_result:
+                        st.markdown("#### Alternative Classifications")
+                        st.caption("AI model's secondary classification possibilities")
+                        
+                        alt_categories = classifier_result['alternative_categories']
+                        for alt in alt_categories:
+                            cat = alt['category']
+                            score = alt['score']
+                            
+                            # Display each alternative with a smaller progress bar
+                            st.markdown(f"**{cat}**")
+                            st.progress(score)
+                            st.caption(f"Score: {score:.2f}")
+                    
+                    # Show matched keywords if available
+                    if 'matched_keywords' in classifier_result:
+                        st.markdown("#### Key Indicators Detected")
+                        keywords = classifier_result['matched_keywords']
+                        st.write(", ".join([f"`{kw}`" for kw in keywords]))
+            
+            # Show raw response if available (for debugging)
+            if huggingface_api_key and 'hugging_face_result' in st.session_state and 'raw_response' in st.session_state.hugging_face_result:
+                with st.expander("View Raw AI Model Response"):
+                    st.json(st.session_state.hugging_face_result['raw_response'])
             
             # Get and display mitigation recommendations
-            recommendations = get_mitigation_recommendations(st.session_state.final_category)
+            if 'classifier_result' in st.session_state and 'recommendations' in st.session_state.classifier_result:
+                recommendations = st.session_state.classifier_result['recommendations']
+            else:
+                recommendations = get_mitigation_recommendations(st.session_state.final_category)
             
-            st.markdown("### Recommended Mitigations")
-            for rec in recommendations:
+            st.markdown("### AI-Generated Mitigation Recommendations")
+            st.caption("Based on threat classification and context analysis")
+            
+            for idx, rec in enumerate(recommendations):
                 st.markdown(f"- {rec}")
     
     with tab4:

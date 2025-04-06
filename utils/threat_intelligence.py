@@ -7,10 +7,11 @@ import json
 import random
 import time
 
-def fetch_hugging_face_analysis(text, model_name="distilbert-base-uncased-finetuned-sst-2-english"):
+def fetch_hugging_face_analysis(text, model_name="deepset/roberta-base-squad2"):
     """
-    Fetch sentiment analysis from Hugging Face API for threat text.
-    In a real implementation, this would use a specialized cybersecurity model.
+    Fetch analysis from Hugging Face API for threat text.
+    This function connects to the Hugging Face Inference API to analyze threat descriptions
+    using transformer models.
     
     Args:
         text (str): The text to analyze
@@ -20,51 +21,145 @@ def fetch_hugging_face_analysis(text, model_name="distilbert-base-uncased-finetu
         dict: The analysis results
     """
     try:
-        # Simulated API call to Hugging Face
-        # In a real implementation, you would use:
-        # API_URL = f"https://api-inference.huggingface.co/models/{model_name}"
-        # headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
-        # response = requests.post(API_URL, headers=headers, json={"inputs": text})
-        # return response.json()
+        # Check if we have the API key
+        api_key = os.getenv('HUGGINGFACE_API_KEY')
         
-        # For demo purposes, return simulated classification results
-        time.sleep(0.2)  # Simulate API latency
-        
-        # Classify based on keywords in the text
-        text_lower = text.lower()
-        if any(word in text_lower for word in ['malware', 'virus', 'trojan', 'worm']):
-            classification = 'Malware'
-            confidence = random.uniform(0.75, 0.95)
-        elif any(word in text_lower for word in ['ransomware', 'encrypt', 'ransom', 'bitcoin']):
-            classification = 'Ransomware'
-            confidence = random.uniform(0.80, 0.98)
-        elif any(word in text_lower for word in ['phishing', 'email', 'credential', 'login']):
-            classification = 'Phishing'
-            confidence = random.uniform(0.70, 0.90)
-        elif any(word in text_lower for word in ['ddos', 'denial', 'service', 'traffic']):
-            classification = 'DDoS'
-            confidence = random.uniform(0.65, 0.85)
-        elif any(word in text_lower for word in ['breach', 'leak', 'data', 'exposure']):
-            classification = 'Data Breach'
-            confidence = random.uniform(0.60, 0.88)
+        if api_key:
+            # Real API call to Hugging Face
+            API_URL = f"https://api-inference.huggingface.co/models/{model_name}"
+            headers = {"Authorization": f"Bearer {api_key}"}
+            
+            # Define the payload based on the model type
+            if "squad" in model_name.lower():
+                # For question-answering models
+                payload = {
+                    "inputs": {
+                        "question": "What type of cyber threat is this?",
+                        "context": text
+                    }
+                }
+            elif "zero-shot-classification" in model_name.lower():
+                # For zero-shot classification models
+                payload = {
+                    "inputs": text,
+                    "parameters": {
+                        "candidate_labels": ["Malware", "Ransomware", "Phishing", "DDoS", "Data Breach", "APT", "Insider Threat"]
+                    }
+                }
+            else:
+                # For text classification/sentiment models
+                payload = {"inputs": text}
+            
+            # Make the API request
+            response = requests.post(API_URL, headers=headers, json=payload)
+            
+            # Process the response based on the model type
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Process result based on model type
+                if "squad" in model_name.lower():
+                    # Extract answer from QA model
+                    classification = result.get('answer', 'Unknown')
+                    confidence = result.get('score', 0.0)
+                elif "zero-shot-classification" in model_name.lower():
+                    # Extract best label and score from zero-shot
+                    if isinstance(result, list) and len(result) > 0:
+                        labels = result[0].get('labels', [])
+                        scores = result[0].get('scores', [])
+                        if labels and scores:
+                            classification = labels[0]
+                            confidence = scores[0]
+                        else:
+                            classification = 'Unknown'
+                            confidence = 0.0
+                    else:
+                        classification = 'Unknown'
+                        confidence = 0.0
+                else:
+                    # For sentiment/text classification models
+                    if isinstance(result, list) and len(result) > 0:
+                        if isinstance(result[0], dict) and 'label' in result[0]:
+                            classification = result[0].get('label', 'Unknown')
+                            confidence = result[0].get('score', 0.0)
+                        else:
+                            classification = 'Unknown'
+                            confidence = 0.0
+                    else:
+                        classification = 'Unknown'
+                        confidence = 0.0
+                
+                return {
+                    'classification': classification,
+                    'confidence': round(float(confidence), 2),
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'model': model_name,
+                    'raw_response': result  # Include raw response for debugging
+                }
+            else:
+                # Handle API error
+                error_msg = f"API Error: {response.status_code} - {response.text}"
+                print(error_msg)
+                
+                # Fall back to keyword-based classification
+                return _keyword_based_classification(text)
         else:
-            classification = 'Other'
-            confidence = random.uniform(0.50, 0.70)
-            
-        return {
-            'classification': classification,
-            'confidence': round(confidence, 2),
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-            
+            # API key not available, use fallback
+            print("Hugging Face API key not found, using fallback classification")
+            return _keyword_based_classification(text)
+                
     except Exception as e:
         print(f"Error with Hugging Face API: {str(e)}")
-        return {
-            'classification': 'Unknown',
-            'confidence': 0.0,
-            'error': str(e),
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
+        # Fall back to keyword-based classification
+        return _keyword_based_classification(text)
+
+def _keyword_based_classification(text):
+    """
+    Fallback method that uses keyword matching to classify threats
+    when the Hugging Face API is unavailable.
+    
+    Args:
+        text (str): The text to analyze
+        
+    Returns:
+        dict: The classification results
+    """
+    # For demo purposes, return keyword-based classification results
+    text_lower = text.lower()
+    
+    # Classify based on keywords in the text
+    if any(word in text_lower for word in ['malware', 'virus', 'trojan', 'worm']):
+        classification = 'Malware'
+        confidence = random.uniform(0.75, 0.95)
+    elif any(word in text_lower for word in ['ransomware', 'encrypt', 'ransom', 'bitcoin']):
+        classification = 'Ransomware'
+        confidence = random.uniform(0.80, 0.98)
+    elif any(word in text_lower for word in ['phishing', 'email', 'credential', 'login']):
+        classification = 'Phishing'
+        confidence = random.uniform(0.70, 0.90)
+    elif any(word in text_lower for word in ['ddos', 'denial', 'service', 'traffic']):
+        classification = 'DDoS'
+        confidence = random.uniform(0.65, 0.85)
+    elif any(word in text_lower for word in ['breach', 'leak', 'data', 'exposure']):
+        classification = 'Data Breach'
+        confidence = random.uniform(0.60, 0.88)
+    elif any(word in text_lower for word in ['apt', 'advanced', 'persistent', 'nation']):
+        classification = 'APT' 
+        confidence = random.uniform(0.70, 0.92)
+    elif any(word in text_lower for word in ['insider', 'employee', 'internal']):
+        classification = 'Insider Threat'
+        confidence = random.uniform(0.65, 0.90)
+    else:
+        classification = 'Other'
+        confidence = random.uniform(0.50, 0.70)
+        
+    return {
+        'classification': classification,
+        'confidence': round(confidence, 2),
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'model': 'keyword-fallback',
+        'note': 'Using fallback keyword-based classification'
+    }
 
 def get_threat_intelligence(threat_type=None):
     """

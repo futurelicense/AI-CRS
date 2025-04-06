@@ -80,7 +80,10 @@ def train_threat_classifier():
 
 def classify_threat(text, vectorizer=None, model=None):
     """
-    Classify a threat description using a trained model or dummy logic.
+    Classify a threat description using:
+    1. A trained model if provided
+    2. Hugging Face API if available
+    3. Fallback to keyword-based classification
     
     Args:
         text (str): The threat description text
@@ -90,9 +93,15 @@ def classify_threat(text, vectorizer=None, model=None):
     Returns:
         dict: Classification results including category and confidence
     """
-    # If model and vectorizer are provided, use them
+    import os
+    from utils.threat_intelligence import fetch_hugging_face_analysis
+    
+    # Check if Hugging Face API key is available
+    api_key = os.getenv('HUGGINGFACE_API_KEY')
+    
+    # Option 1: If model and vectorizer are provided, use them
     if model is not None and vectorizer is not None:
-        # Transform the text and predict
+        # Transform the text and predict using trained model
         text_vec = vectorizer.transform([text])
         category = model.predict(text_vec)[0]
         
@@ -100,48 +109,236 @@ def classify_threat(text, vectorizer=None, model=None):
         proba = model.predict_proba(text_vec)[0]
         confidence = proba[list(model.classes_).index(category)]
         
+        model_type = "local_trained_model"
+        
+    # Option 2: If HuggingFace API key is available, use that for more advanced classification
+    elif api_key:
+        try:
+            # Use zero-shot classification model for flexibility with cyber threats
+            huggingface_result = fetch_hugging_face_analysis(
+                text, 
+                model_name="facebook/bart-large-mnli"  # Zero-shot classification model
+            )
+            
+            # Extract category and confidence from the HuggingFace result
+            category = huggingface_result.get('classification', 'Unknown')
+            confidence = huggingface_result.get('confidence', 0.5)
+            model_type = f"huggingface_{huggingface_result.get('model', 'unknown')}"
+            
+            # Extract additional insights if available
+            additional_insights = {}
+            raw_response = huggingface_result.get('raw_response', {})
+            
+            if isinstance(raw_response, list) and len(raw_response) > 0:
+                # For zero-shot models, extract all labels and scores for additional insights
+                if 'labels' in raw_response[0] and 'scores' in raw_response[0]:
+                    labels = raw_response[0].get('labels', [])
+                    scores = raw_response[0].get('scores', [])
+                    
+                    # Create a mapping of all categories and their scores
+                    additional_insights['alternative_categories'] = [
+                        {'category': label, 'score': round(float(score), 2)} 
+                        for label, score in zip(labels, scores)
+                        if label != category  # Skip the primary category
+                    ]
+            
+        except Exception as e:
+            print(f"Error using Hugging Face API for threat classification: {str(e)}")
+            # Fall back to keyword-based classification
+            category, confidence, model_type, additional_insights = _keyword_based_threat_classification(text, return_details=True)
+    
+    # Option 3: Fallback to keyword-based classification
     else:
-        # Fallback to keyword-based classification
-        text_lower = text.lower()
-        
-        # Define keywords for each category
-        categories = {
-            'Unauthorized Access': ['login', 'access', 'credential', 'authentication', 'password'],
-            'Malware': ['malware', 'virus', 'trojan', 'worm', 'backdoor'],
-            'Data Breach': ['breach', 'exfiltration', 'leak', 'data', 'sensitive'],
-            'Phishing': ['phishing', 'email', 'link', 'attachment', 'social engineering'],
-            'Ransomware': ['ransomware', 'encrypt', 'bitcoin', 'payment', 'ransom'],
-            'DDoS': ['ddos', 'traffic', 'flood', 'service', 'availability'],
-            'Insider Threat': ['insider', 'employee', 'privileged', 'internal', 'abuse'],
-            'Web Attack': ['injection', 'xss', 'sql', 'web', 'application']
-        }
-        
-        # Count matches for each category
-        category_matches = {}
-        for cat, keywords in categories.items():
-            matches = sum(1 for keyword in keywords if keyword in text_lower)
-            category_matches[cat] = matches
-        
-        # Select category with most keyword matches
-        if sum(category_matches.values()) > 0:
-            category = max(category_matches, key=category_matches.get)
-            # Calculate confidence based on proportion of matches
-            total_matches = sum(category_matches.values())
-            confidence = category_matches[category] / total_matches if total_matches > 0 else 0.5
-            confidence = min(0.95, max(0.6, confidence))  # Keep between 0.6 and 0.95
-        else:
-            # Default if no matches
-            category = 'Unknown'
-            confidence = 0.5
+        category, confidence, model_type, additional_insights = _keyword_based_threat_classification(text, return_details=True)
     
     # Add timestamp
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    return {
+    result = {
         'category': category,
-        'confidence': round(confidence, 2),
-        'timestamp': timestamp
+        'confidence': round(float(confidence), 2),
+        'timestamp': timestamp,
+        'model': model_type
     }
+    
+    # Add additional insights if available
+    if additional_insights:
+        result.update(additional_insights)
+        
+    # Add threat intelligence recommendations
+    result['recommendations'] = get_threat_recommendations(category, text)
+        
+    return result
+
+def get_threat_recommendations(category, description):
+    """
+    Generate AI-powered recommendations for addressing the threat.
+    
+    Args:
+        category (str): The threat category
+        description (str): The threat description
+        
+    Returns:
+        list: List of recommendations
+    """
+    # Base recommendations by category
+    base_recommendations = {
+        'Unauthorized Access': [
+            'Implement multi-factor authentication',
+            'Review access control policies',
+            'Audit user privileges and implement least privilege',
+            'Enable login anomaly detection'
+        ],
+        'Malware': [
+            'Update antivirus definitions',
+            'Perform full system scan',
+            'Isolate affected systems from the network',
+            'Review application whitelisting policies'
+        ],
+        'Data Breach': [
+            'Identify and secure compromised data',
+            'Notify affected parties as required by regulations',
+            'Implement data loss prevention controls',
+            'Encrypt sensitive data at rest and in transit'
+        ],
+        'Phishing': [
+            'Conduct employee awareness training',
+            'Implement email filtering and authentication',
+            'Scan for compromised credentials',
+            'Enable URL filtering and web protection'
+        ],
+        'Ransomware': [
+            'Isolate affected systems immediately',
+            'Restore from clean backups if available',
+            'Scan for encryption backdoors',
+            'Implement application control policies'
+        ],
+        'DDoS': [
+            'Engage with DDoS mitigation service',
+            'Implement rate limiting at network edge',
+            'Configure traffic anomaly detection',
+            'Review network architecture for resilience'
+        ],
+        'Insider Threat': [
+            'Review activity logs for anomalous behavior',
+            'Implement data access monitoring',
+            'Update security training and awareness',
+            'Review privileged access management'
+        ],
+        'Web Attack': [
+            'Apply security patches to web applications',
+            'Review web application firewall rules',
+            'Perform security code review',
+            'Implement input validation and sanitization'
+        ]
+    }
+    
+    # Get base recommendations for the category
+    recommendations = base_recommendations.get(category, [
+        'Perform thorough security assessment',
+        'Update incident response playbook',
+        'Review security controls and architecture',
+        'Implement defense in depth strategies'
+    ])
+    
+    # Add context-specific recommendations based on description
+    description_lower = description.lower()
+    
+    # Check for specific indicators in the description to provide targeted recommendations
+    if 'cloud' in description_lower or 'aws' in description_lower or 'azure' in description_lower:
+        recommendations.append('Review cloud security configuration and access controls')
+        
+    if 'iot' in description_lower or 'device' in description_lower or 'sensor' in description_lower:
+        recommendations.append('Update firmware on IoT devices and implement network segmentation')
+        
+    if 'credentials' in description_lower or 'password' in description_lower:
+        recommendations.append('Force password reset for affected accounts and implement password complexity requirements')
+        
+    if 'zero-day' in description_lower or 'unpatched' in description_lower or 'vulnerability' in description_lower:
+        recommendations.append('Implement virtual patching through WAF or IPS while vendor patch is pending')
+    
+    return recommendations
+
+def _keyword_based_threat_classification(text, return_details=False):
+    """
+    Fallback method that uses keyword matching to classify threats.
+    
+    Args:
+        text (str): The text to analyze
+        return_details (bool): Whether to return additional details
+        
+    Returns:
+        tuple: (category, confidence, model_type) or (category, confidence, model_type, additional_details)
+    """
+    text_lower = text.lower()
+    
+    # Define keywords for each category
+    categories = {
+        'Unauthorized Access': ['login', 'access', 'credential', 'authentication', 'password', 'unauthorized', 'admin'],
+        'Malware': ['malware', 'virus', 'trojan', 'worm', 'backdoor', 'payload', 'executable', 'infection'],
+        'Data Breach': ['breach', 'exfiltration', 'leak', 'data', 'sensitive', 'exposure', 'confidential', 'disclosure'],
+        'Phishing': ['phishing', 'email', 'link', 'attachment', 'social engineering', 'spear', 'impersonation'],
+        'Ransomware': ['ransomware', 'encrypt', 'bitcoin', 'payment', 'ransom', 'crypto', 'locker', 'decrypt'],
+        'DDoS': ['ddos', 'traffic', 'flood', 'service', 'availability', 'bandwidth', 'amplification', 'volumetric'],
+        'Insider Threat': ['insider', 'employee', 'privileged', 'internal', 'abuse', 'contractor', 'staff'],
+        'Web Attack': ['injection', 'xss', 'sql', 'web', 'application', 'site', 'csrf', 'cookies', 'session']
+    }
+    
+    # Count matches for each category
+    category_matches = {}
+    for cat, keywords in categories.items():
+        matches = sum(1 for keyword in keywords if keyword in text_lower)
+        category_matches[cat] = matches
+    
+    # Select category with most keyword matches
+    if sum(category_matches.values()) > 0:
+        category = max(category_matches, key=category_matches.get)
+        # Calculate confidence based on proportion of matches
+        total_matches = sum(category_matches.values())
+        confidence = category_matches[category] / total_matches if total_matches > 0 else 0.5
+        confidence = min(0.95, max(0.6, confidence))  # Keep between 0.6 and 0.95
+    else:
+        # Default if no matches
+        category = 'Unknown'
+        confidence = 0.5
+    
+    if return_details:
+        # Create alternative categories by sorting the matches
+        sorted_categories = sorted(
+            [(cat, matches) for cat, matches in category_matches.items() if matches > 0 and cat != category],
+            key=lambda x: x[1],
+            reverse=True
+        )
+        
+        additional_insights = {}
+        if sorted_categories:
+            # Include the top 3 alternative categories if available
+            alternative_categories = []
+            for cat, matches in sorted_categories[:3]:
+                # Calculate a relative confidence score
+                alt_confidence = matches / total_matches if total_matches > 0 else 0.3
+                alt_confidence = min(0.9, max(0.4, alt_confidence))  # Keep between 0.4 and 0.9
+                alternative_categories.append({
+                    'category': cat,
+                    'score': round(alt_confidence, 2)
+                })
+            
+            if alternative_categories:
+                additional_insights['alternative_categories'] = alternative_categories
+        
+        # Also include the matched keywords as indicators
+        matched_keywords = []
+        for cat, keywords in categories.items():
+            for keyword in keywords:
+                if keyword in text_lower:
+                    matched_keywords.append(keyword)
+        
+        if matched_keywords:
+            additional_insights['matched_keywords'] = matched_keywords[:5]  # Limit to top 5 keywords
+        
+        return category, confidence, "keyword_based_classification", additional_insights
+    
+    return category, confidence, "keyword_based_classification"
 
 def predict_future_threats(historical_data, days=30):
     """
