@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
+import numbers
 
 from utils.risk_assessment import prioritize_risks, calculate_risk_score
 from utils.visualization import plot_risk_matrix
@@ -15,6 +16,10 @@ def show_risk_prioritization():
     # Get data from session state
     threat_data = st.session_state.threat_data
     vulnerability_data = st.session_state.vulnerability_data
+    
+    st.write("Vulnerability data shape:", vulnerability_data.shape)
+    st.write(vulnerability_data.head())
+    st.write("Unique severities:", vulnerability_data['severity'].unique())
     
     # Create tabs for different risk prioritization views
     tab1, tab2, tab3 = st.tabs(["Risk Matrix", "Top Risks", "Risk Treatment"])
@@ -75,6 +80,32 @@ def show_risk_prioritization():
                 delta="-2.5" if avg_risk > 50 else "0",
                 delta_color="inverse"
             )
+        
+        # Clean severity column for the bar chart only
+        severity_data = vulnerability_data.copy()
+        severity_data['severity'] = severity_data['severity'].fillna('').astype(str).str.strip()
+        valid_severities = ['Critical', 'High', 'Medium', 'Low']
+        severity_data = severity_data[severity_data['severity'].isin(valid_severities)]
+        
+        # Distribution of vulnerabilities by severity
+        severity_counts = severity_data['severity'].value_counts().reindex(valid_severities, fill_value=0).reset_index()
+        severity_counts.columns = ['severity', 'count']
+        severity_counts = severity_counts[severity_counts['count'] > 0]
+        if not severity_counts.empty:
+            fig = px.pie(
+                severity_counts,
+                values='count',
+                names='severity',
+                title="Risk Distribution by Severity",
+                hover_data=['count'],
+                labels={'count': 'Number of Risks'}
+            )
+            fig.update_traces(
+                hovertemplate='<b>%{label}</b><br>Number of Risks: %{value}'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("No valid vulnerability severity data to display.")
     
     with tab2:
         st.subheader("Top Prioritized Risks")
@@ -166,26 +197,34 @@ def show_risk_prioritization():
         # Risk distribution by category
         if not filtered_risks.empty:
             st.subheader("Risk Distribution by Category")
-            
+            # Clean category column
+            filtered_risks = filtered_risks.copy()
+            filtered_risks['category'] = filtered_risks['category'].fillna('').astype(str).str.strip()
+            filtered_risks = filtered_risks[filtered_risks['category'] != '']
             # Group by category and sum risk scores
-            category_risks = filtered_risks.groupby('category')['risk_score'].agg(['mean', 'count']).reset_index()
-            category_risks['total_risk'] = category_risks['mean'] * category_risks['count']
-            category_risks = category_risks.sort_values('total_risk', ascending=False)
-            
-            fig = px.pie(
-                category_risks,
-                values='total_risk',
-                names='category',
-                title="Risk Distribution by Category",
-                hover_data=['count', 'mean'],
-                labels={'total_risk': 'Total Risk Score', 'count': 'Number of Risks', 'mean': 'Average Risk Score'}
-            )
-            
-            fig.update_traces(
-                hovertemplate='<b>%{label}</b><br>Total Risk: %{value:.1f}<br>Count: %{customdata[0]}<br>Avg Score: %{customdata[1]:.1f}'
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+            if not filtered_risks.empty:
+                category_risks = filtered_risks.groupby('category')['risk_score'].agg(['mean', 'count']).reset_index()
+                category_risks['total_risk'] = category_risks['mean'] * category_risks['count']
+                category_risks = category_risks.sort_values('total_risk', ascending=False)
+                if not category_risks.empty:
+                    fig = px.pie(
+                        category_risks,
+                        values='total_risk',
+                        names='category',
+                        title="Risk Distribution by Category",
+                        hover_data=['count', 'mean'],
+                        labels={'total_risk': 'Total Risk Score', 'count': 'Number of Risks', 'mean': 'Average Risk Score'}
+                    )
+                    fig.update_traces(
+                        hovertemplate='<b>%{label}</b><br>Total Risk: %{value:.1f}<br>Count: %{customdata[0]}<br>Avg Score: %{customdata[1]:.1f}'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("No valid risk categories to display.")
+            else:
+                st.warning("No valid risk categories to display.")
+        else:
+            st.warning("No valid risk categories to display.")
     
     with tab3:
         st.subheader("Risk Treatment Planning")
@@ -246,54 +285,71 @@ def show_risk_prioritization():
         
         # Create sample treatment timeline data
         timeline_data = []
-        
         # Add critical risks (immediate treatment)
         for i, risk in enumerate(critical_risks.head(min(3, len(critical_risks))).iterrows()):
+            start = datetime.now() + timedelta(days=1)
+            end = datetime.now() + timedelta(days=7 + i)
             timeline_data.append({
                 'Risk': risk[1]['name'],
                 'Severity': 'Critical',
-                'Start': datetime.now() + timedelta(days=1),
-                'End': datetime.now() + timedelta(days=7 + i),
+                'Start': start,
+                'End': end,
                 'Treatment': 'Mitigate'
             })
-        
         # Add high risks (short-term treatment)
         for i, risk in enumerate(high_risks.head(min(5, len(high_risks))).iterrows()):
+            start = datetime.now() + timedelta(days=7)
+            end = datetime.now() + timedelta(days=21 + i * 2)
             timeline_data.append({
                 'Risk': risk[1]['name'],
                 'Severity': 'High',
-                'Start': datetime.now() + timedelta(days=7),
-                'End': datetime.now() + timedelta(days=21 + i * 2),
+                'Start': start,
+                'End': end,
                 'Treatment': 'Mitigate'
             })
-        
         # Add medium risks (medium-term treatment)
         for i, risk in enumerate(medium_risks.head(min(3, len(medium_risks))).iterrows()):
+            start = datetime.now() + timedelta(days=14)
+            end = datetime.now() + timedelta(days=30 + i * 3)
             timeline_data.append({
                 'Risk': risk[1]['name'],
                 'Severity': 'Medium',
-                'Start': datetime.now() + timedelta(days=14),
-                'End': datetime.now() + timedelta(days=30 + i * 3),
-                'Treatment': np.random.choice(['Mitigate', 'Transfer'])
+                'Start': start,
+                'End': end,
+                'Treatment': str(np.random.choice(['Mitigate', 'Transfer']))
             })
-        
         # Add low risks (longer-term treatment or acceptance)
         for i, risk in enumerate(low_risks.head(min(2, len(low_risks))).iterrows()):
+            start = datetime.now() + timedelta(days=30)
+            end = datetime.now() + timedelta(days=60 + i * 5)
             timeline_data.append({
                 'Risk': risk[1]['name'],
                 'Severity': 'Low',
-                'Start': datetime.now() + timedelta(days=30),
-                'End': datetime.now() + timedelta(days=60 + i * 5),
+                'Start': start,
+                'End': end,
                 'Treatment': 'Accept'
             })
-        
         # Create timeline DataFrame
         if timeline_data:
             timeline_df = pd.DataFrame(timeline_data)
-            
-            # Convert to proper format for Gantt chart
             timeline_df['Task'] = timeline_df['Risk'] + ' (' + timeline_df['Treatment'] + ')'
-            
+            # Final bulletproof timedelta removal for all columns
+            for col in timeline_df.columns:
+                # Convert any timedelta to string (or to a valid datetime if you want)
+                timeline_df[col] = timeline_df[col].apply(
+                    lambda x: (
+                        (datetime.now() + x) if isinstance(x, timedelta) else
+                        (pd.to_datetime(x) if isinstance(x, str) else x)
+                    )
+                )
+                # If any are still timedelta, convert to string
+                timeline_df[col] = timeline_df[col].apply(lambda x: str(x) if isinstance(x, timedelta) else x)
+
+            # Drop any rows where Start or End is not a datetime
+            timeline_df = timeline_df[
+                timeline_df['Start'].apply(lambda x: isinstance(x, (pd.Timestamp, datetime))) &
+                timeline_df['End'].apply(lambda x: isinstance(x, (pd.Timestamp, datetime)))
+            ]
             # Create Gantt chart
             colors = {
                 'Critical': '#d7191c',
@@ -301,7 +357,6 @@ def show_risk_prioritization():
                 'Medium': '#ffffbf',
                 'Low': '#abd9e9'
             }
-            
             fig = px.timeline(
                 timeline_df, 
                 x_start='Start', 
@@ -312,13 +367,11 @@ def show_risk_prioritization():
                 title="Risk Treatment Timeline",
                 labels={'Task': 'Risk (Treatment)', 'Start': 'Start Date', 'End': 'End Date'}
             )
-            
             fig.update_layout(
                 xaxis_title="Date",
                 yaxis_title="Risk (Treatment)",
                 height=400 + len(timeline_df) * 25  # Adjust height based on number of items
             )
-            
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("No risks available for timeline generation.")
